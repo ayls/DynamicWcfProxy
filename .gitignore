@@ -1,6 +1,36 @@
-# Build Folders (you can keep bin if you'd like, to store dlls and pdbs)
-bin
-obj
+#
+# Windows
+#
+
+# Windows Thumbnail Cache
+# See: http://en.wikipedia.org/wiki/Windows_thumbnail_cache
+Thumbs.db
+
+#
+# Visual Studio
+#
+
+# Solution User Options
+*.suo
+
+# Project User Options
+*.user
 
 # mstest test results
 TestResults
+
+# Build Directories
+bin/
+obj/
+
+# .webinfo files are user-specific mappings for project endpoints
+# http://support.microsoft.com/kb/830611
+*.webinfo
+
+#
+# ReSharper
+#
+
+# Cache Folders
+_ReSharper.*
+

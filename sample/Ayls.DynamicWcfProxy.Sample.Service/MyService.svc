@@ -1,0 +1,1 @@
+﻿<%@ ServiceHost Language="C#" Debug="true" Service="Ayls.DynamicWcfProxy.Sample.Service.MyService" CodeBehind="MyService.svc.cs" %>
