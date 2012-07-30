@@ -5,11 +5,10 @@ using System.ServiceModel;
 
 namespace Ayls.DynamicWcfProxy
 {
-    class ProxyPoolMember<T> where T:class 
+    class ProxyPoolMember<T> where T:class
     {
-        private readonly ChannelFactory<T> _serviceFactory;
+        private readonly ProxyContext<T> _context; 
         private readonly object _connectionLock = new object();
-        private readonly int _proxyConnectionDuration;
         private Timer _timer;
         private DateTime _lastUsed;
         private T _proxy;
@@ -38,13 +37,10 @@ namespace Ayls.DynamicWcfProxy
             return (ICommunicationObject)_proxy;
         }
 
-        public ProxyPoolMember(int closeConnectionOffset)
+        public ProxyPoolMember(ProxyContext<T> context)
         {
-            _serviceFactory = new ChannelFactory<T>(GetProxyType().Name + "Endpoint");
-            _proxy = _serviceFactory.CreateChannel();
-            // take send timeout (operation timeout) and add closeConnectionOffset on top of it to get the idle time after which connection should be closed
-            // this is to avoid closing the connection before it timeouts which could lead to confusing error messages
-            _proxyConnectionDuration = Convert.ToInt32(_serviceFactory.Endpoint.Binding.SendTimeout.TotalMilliseconds) + closeConnectionOffset;
+            _context = context;
+            _proxy = ProxyContext<T>.ServiceFactory.CreateChannel();
         }
 
         private void PrepareAndOpen()
@@ -55,12 +51,12 @@ namespace Ayls.DynamicWcfProxy
             {
                 case CommunicationState.Closed:
                 case CommunicationState.Closing:
-                    _proxy = _serviceFactory.CreateChannel();
+                    _proxy = ProxyContext<T>.ServiceFactory.CreateChannel();
                     communicationObject = GetCommunicationObject();
                     break;
                 case CommunicationState.Faulted:
                     communicationObject.Abort();
-                    _proxy = _serviceFactory.CreateChannel();
+                    _proxy = ProxyContext<T>.ServiceFactory.CreateChannel();
                     communicationObject = GetCommunicationObject();
                     break;
             }
@@ -79,9 +75,9 @@ namespace Ayls.DynamicWcfProxy
         private void StartConnectionCheck()
         {
             if (_timer == null)
-                _timer = new Timer(ConnectionCheck, null, _proxyConnectionDuration, _proxyConnectionDuration);
+                _timer = new Timer(ConnectionCheck, null, _context.MaxConnectionIdleTime, _context.MaxConnectionIdleTime);
             else
-                _timer.Change(_proxyConnectionDuration, _proxyConnectionDuration);
+                _timer.Change(_context.MaxConnectionIdleTime, _context.MaxConnectionIdleTime);
         }
 
         private void ConnectionCheck(object state)
@@ -89,7 +85,7 @@ namespace Ayls.DynamicWcfProxy
             lock (_connectionLock)
             {
                 DateTime checkAt = DateTime.Now;
-                if ((checkAt - _lastUsed).TotalMilliseconds >= _proxyConnectionDuration) 
+                if ((checkAt - _lastUsed).TotalMilliseconds >= _context.MaxConnectionIdleTime) 
                 {
                     Close();
                     StopConnectionCheck();

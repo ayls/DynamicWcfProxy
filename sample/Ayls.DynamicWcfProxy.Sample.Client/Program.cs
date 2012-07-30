@@ -1,4 +1,5 @@
 ﻿using System;
+using Ayls.DynamicWcfProxy.Sample.Contracts;
 
 namespace Ayls.DynamicWcfProxy.Sample.Client
 {
@@ -7,16 +8,16 @@ namespace Ayls.DynamicWcfProxy.Sample.Client
         static void Main(string[] args)
         {
             // make sure to wrap the call into a using statement or else the proxy will not be returned to pool
-            using (var proxy = new MyServiceProxy())
+            using (var client = new ProxyBase<IMyService>())
             {
-                Console.WriteLine(proxy.GetData("Dude", 34));
+                Console.WriteLine(client.ExecuteProxyFunction(() => client.Proxy.GetData("Dude", 34)));
             }
 
             Console.ReadLine();
 
-            using (var proxy = new MyServiceProxy())
+            using (var client = new ProxyBase<IMyService>())
             {
-                Console.WriteLine(proxy.GetData("Mate", 45));
+                Console.WriteLine(client.ExecuteProxyFunction(() => client.Proxy.GetData("Joe", 45)));
             }
 
             Console.ReadLine();

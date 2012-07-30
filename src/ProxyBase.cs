@@ -2,14 +2,14 @@
 
 namespace Ayls.DynamicWcfProxy
 {
-    public abstract class ProxyBase<T> : IDisposable
+    public class ProxyBase<T> : IDisposable
         where T : class
     {
         private readonly ProxyPoolMember<T> _pooledProxy = null;
 
-        protected ProxyBase()
+        public ProxyBase()
         {
-            _pooledProxy = ProxyPool.Current.GetProxy<T>();
+            _pooledProxy = ProxyPool.Current.GetProxy<T>(new ProxyContext<T>());
         }
 
         public T Proxy
@@ -20,12 +20,12 @@ namespace Ayls.DynamicWcfProxy
             }
         }
 
-        protected TResult ExecuteProxyFunction<TResult>(Func<TResult> f)
+        public TResult ExecuteProxyFunction<TResult>(Func<TResult> f)
         {
             return f.Invoke();
         }
 
-        protected void ExecuteProxyMethod(Action f)
+        public void ExecuteProxyMethod(Action f)
         {
             f.Invoke();
         }
@@ -46,7 +46,7 @@ namespace Ayls.DynamicWcfProxy
             {
                 if (disposing)
                     if (_pooledProxy != null)
-                        ProxyPool.Current.ReturnProxyToPool(_pooledProxy);
+                        ProxyPool.Current.ReturnProxy(_pooledProxy);
             }
             _disposed = true;
         }

@@ -1,8 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Collections.Specialized;
 using System.Collections;
-using System.Configuration;
 using System.Globalization;
 
 namespace Ayls.DynamicWcfProxy
@@ -12,33 +10,13 @@ namespace Ayls.DynamicWcfProxy
         public readonly static ProxyPool Current = new ProxyPool();
 
         private readonly Hashtable _proxies;
-        private int _maxNumberOfProxiesPerService;
-        private int _closeConnectionOffset;
 
         private ProxyPool()
         {
-            InitializeParameters();
             _proxies = new Hashtable();
         }
 
-        private void InitializeParameters()
-        {
-            // Read common appSettings first...
-            var configSection = (NameValueCollection)(ConfigurationManager.GetSection("dynamicWcfProxyPool"));
-            if (configSection != null)
-            {
-                _maxNumberOfProxiesPerService = int.Parse(configSection["maxNumberOfProxiesPerService"]);
-                _closeConnectionOffset = int.Parse(configSection["maxConnectionIdleTimeInSeconds"]) * 1000;
-            } 
-            else
-            {
-                _maxNumberOfProxiesPerService = 0; // infinite
-                _closeConnectionOffset = 0; // this plus sendTimeout defines when the connections will be closed (offset defaults to 0 seconds)
-            }
-        }
-
-
-        public ProxyPoolMember<T> GetProxy<T>() where T:class
+        public ProxyPoolMember<T> GetProxy<T>(ProxyContext<T> context) where T:class
         {
             Type t = typeof(T);
             lock (t)
@@ -69,15 +47,14 @@ namespace Ayls.DynamicWcfProxy
                         _proxies.Add(t, proxyCollection);
                     }
 
-                    // if _maxNumberOfProxiesPerService is set to 0 we do not limit number of proxies in the pool
-                    if (_maxNumberOfProxiesPerService > 0 && proxyCollection.Count >= _maxNumberOfProxiesPerService) 
+                    if (context.MaxNumberOfProxiesPerService < int.MaxValue && proxyCollection.Count >= context.MaxNumberOfProxiesPerService) 
                     {
-                        string msg = String.Format("Pool is already at maximum capacity ({0}).", _maxNumberOfProxiesPerService.ToString(CultureInfo.InvariantCulture));
+                        string msg = String.Format("Pool is already at maximum capacity ({0}).", context.MaxNumberOfProxiesPerService.ToString(CultureInfo.InvariantCulture));
                         System.Diagnostics.Debug.WriteLine(msg);
                         throw new ProxyException(msg);
                     }
 
-                    cachedProxy = new ProxyPoolMember<T>(_closeConnectionOffset);
+                    cachedProxy = new ProxyPoolMember<T>(context);
                     proxyCollection.Add(cachedProxy);
 
                     System.Diagnostics.Debug.WriteLine(
@@ -94,7 +71,7 @@ namespace Ayls.DynamicWcfProxy
             }
         }
 
-        public void ReturnProxyToPool<T>(ProxyPoolMember<T> cachedProxy) where T:class
+        public void ReturnProxy<T>(ProxyPoolMember<T> cachedProxy) where T:class
         {
             Type t = typeof(T);
             lock (t)
