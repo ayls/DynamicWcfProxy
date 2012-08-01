@@ -37,6 +37,8 @@
     <Reference Include="Microsoft.CSharp" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="DefaultProxyConnectionLifeCycleStrategy.cs" />
+    <Compile Include="ProxyConnectionLifeCycleStrategyBase.cs" />
     <Compile Include="ProxyContext.cs" />
     <Compile Include="ProxyException.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
