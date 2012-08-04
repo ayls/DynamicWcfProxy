@@ -47,6 +47,14 @@ namespace Ayls.DynamicWcfProxy
                 {
                     endpointContext = (EndpointContext<T>)_endpointContexts[key];
 
+                    if (endpointContext.ConnectionLifeCycleStrategy.GetType() != connectionLifeCycleStrategy.GetType())
+                    {
+                        throw new ProxyException(string.Format("Endpoint {0} already uses {1}. You cannot use a different connection strategy {2}.", 
+                            endpointName,
+                            endpointContext.ConnectionLifeCycleStrategy.GetType().FullName,
+                            connectionLifeCycleStrategy.GetType().FullName));
+                    }
+
                     foreach (ProxyPoolMember<T> cp in endpointContext.Proxies)
                     {
                         if (!cp.InUse)
