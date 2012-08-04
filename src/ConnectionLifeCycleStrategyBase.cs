@@ -4,14 +4,21 @@ using System.ServiceModel;
 
 namespace Ayls.DynamicWcfProxy
 {
-    public abstract class ProxyConnectionLifeCycleStrategyBase<T> where T : class 
+    public abstract class ConnectionLifeCycleStrategyBase<T> where T : class
     {
-        protected T Proxy;
-
-        protected ProxyConnectionLifeCycleStrategyBase()
+        private T _proxy;
+        protected T Proxy
         {
-            Proxy = ProxyContext<T>.ServiceFactory.CreateChannel();
+            get
+            {
+                if (_proxy == null)
+                    _proxy = EndpointContext.ServiceFactory.CreateChannel();
+
+                return _proxy;
+            }
         }
+
+        public IEndpointContext<T> EndpointContext { get; set; }
 
         public virtual T Open()
         {
@@ -22,12 +29,12 @@ namespace Ayls.DynamicWcfProxy
             {
                 case CommunicationState.Closed:
                 case CommunicationState.Closing:
-                    proxyOut = ProxyContext<T>.ServiceFactory.CreateChannel();
+                    proxyOut = EndpointContext.ServiceFactory.CreateChannel();
                     communicationObject = GetCommunicationObject(Proxy);
                     break;
                 case CommunicationState.Faulted:
                     communicationObject.Abort();
-                    proxyOut = ProxyContext<T>.ServiceFactory.CreateChannel();
+                    proxyOut = EndpointContext.ServiceFactory.CreateChannel();
                     communicationObject = GetCommunicationObject(Proxy);
                     break;
             }
@@ -35,9 +42,10 @@ namespace Ayls.DynamicWcfProxy
             if (communicationObject.State == CommunicationState.Created)
             {
                 communicationObject.Open();
-                System.Diagnostics.Debug.WriteLine(String.Format("Proxy {0} for {1} opened.", 
+                System.Diagnostics.Debug.WriteLine(String.Format("Proxy {0} for {1} ({2}) opened.", 
                     Proxy.GetHashCode().ToString(CultureInfo.InvariantCulture),
-                    ProxyContext<T>.ServiceFactory.Endpoint.Name));
+                    typeof(T).FullName,
+                    EndpointContext.ServiceFactory.Endpoint.Name));
             }
 
             return proxyOut;
@@ -53,9 +61,10 @@ namespace Ayls.DynamicWcfProxy
                 else if (communicationObject.State != CommunicationState.Closed && communicationObject.State != CommunicationState.Closed)
                     communicationObject.Close();
 
-                System.Diagnostics.Debug.WriteLine(String.Format("Proxy {0} for {1} closed.", 
+                System.Diagnostics.Debug.WriteLine(String.Format("Proxy {0} for {1} ({2}) closed.", 
                     Proxy.GetHashCode().ToString(CultureInfo.InvariantCulture),
-                    ProxyContext<T>.ServiceFactory.Endpoint.Name));
+                    typeof(T).FullName,
+                    EndpointContext.ServiceFactory.Endpoint.Name));
             }
             catch (Exception ex)
             {

@@ -6,12 +6,18 @@ namespace Ayls.DynamicWcfProxy
         where T : class
     {
         private readonly ProxyPoolMember<T> _pooledProxy;
-        private readonly ProxyContext<T> _context; 
 
-        public ProxyBase()
+        public ProxyBase() : this(new DefaultConnectionLifeCycleStrategy<T>())
         {
-            _context = new ProxyContext<T>();
-            _pooledProxy = ProxyPool.Current.GetProxy<T>(_context);
+        }
+
+        public ProxyBase(ConnectionLifeCycleStrategyBase<T> connectionLifeCycleStrategy) : this(typeof(T).Name + "Endpoint", connectionLifeCycleStrategy)
+        {
+        }
+
+        public ProxyBase(string endpointName, ConnectionLifeCycleStrategyBase<T> connectionLifeCycleStrategy)
+        {
+            _pooledProxy = ProxyPool.Current.GetProxy<T>(endpointName, connectionLifeCycleStrategy);
         }
 
         public T Proxy
@@ -48,7 +54,7 @@ namespace Ayls.DynamicWcfProxy
             {
                 if (disposing)
                     if (_pooledProxy != null)
-                        ProxyPool.Current.ReturnProxy(_pooledProxy, _context);
+                        ProxyPool.Current.ReturnProxy(_pooledProxy);
             }
             _disposed = true;
         }

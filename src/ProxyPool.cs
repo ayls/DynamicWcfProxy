@@ -7,63 +7,47 @@ namespace Ayls.DynamicWcfProxy
 {
     class ProxyPool
     {
-        struct HashTableKey
-        {
-            public HashTableKey(Type type, string endpointName)
-            {
-                _type = type;
-                _endpointName = endpointName;
-            }
-
-            readonly Type _type;
-            readonly string _endpointName;
-
-            public override bool Equals(object obj)
-            {
-                var otherKey = (HashTableKey)obj;
-                return otherKey._type == _type && otherKey._endpointName == _endpointName;
-            }
-
-            public override int GetHashCode()
-            {
-                return ToString().GetHashCode();
-            }
-
-            public override string ToString()
-            {
-                return string.Format("{0} ({1})", _type.FullName, _endpointName);
-            }
-        }
-
         public readonly static ProxyPool Current = new ProxyPool();
 
-        private readonly Hashtable _proxies;
+        private Dictionary<string, object> _endpointContextKeys; 
+        private readonly Hashtable _endpointContexts; 
         
         private ProxyPool()
         {
-            _proxies = new Hashtable();
+            _endpointContextKeys = new Dictionary<string, object>();
+            _endpointContexts = new Hashtable();
         }
 
-        private HashTableKey GetHashTableKey(Type type, string endpointName)
+        private EndpointKey<T> GetEndpointKey<T>(string endpointName) where T : class
         {
-            return new HashTableKey(type, endpointName);
-        }
-
-        public ProxyPoolMember<T> GetProxy<T>(ProxyContext<T> context) where T:class
-        {
-            // TODO lock down locks to key level
-            Type t = typeof(T);
+            Type t = typeof (T);
             lock (t)
             {
-                var key = GetHashTableKey(t, context.EndpointName);
-
-                List<ProxyPoolMember<T>> proxyCollection = null;
-                ProxyPoolMember<T> cachedProxy = null;
-                if (_proxies.ContainsKey(key)) 
+                if (_endpointContextKeys.ContainsKey(endpointName))
                 {
-                    proxyCollection = (List<ProxyPoolMember<T>>)_proxies[key];
+                    return (EndpointKey<T>)_endpointContextKeys[endpointName];
+                }
+                else
+                {
+                    var key = new EndpointKey<T>(endpointName);
+                    _endpointContextKeys.Add(endpointName, key);
+                    return key;
+                }
+            }
+        }
 
-                    foreach (ProxyPoolMember<T> cp in proxyCollection)
+        public ProxyPoolMember<T> GetProxy<T>(string endpointName, ConnectionLifeCycleStrategyBase<T> connectionLifeCycleStrategy) where T:class
+        {
+            var key = GetEndpointKey<T>(endpointName);
+            lock (key)
+            {
+                EndpointContext<T> endpointContext = null;
+                ProxyPoolMember<T> cachedProxy = null;
+                if (_endpointContexts.ContainsKey(key)) 
+                {
+                    endpointContext = (EndpointContext<T>)_endpointContexts[key];
+
+                    foreach (ProxyPoolMember<T> cp in endpointContext.Proxies)
                     {
                         if (!cp.InUse)
                         {
@@ -76,24 +60,25 @@ namespace Ayls.DynamicWcfProxy
                 // no available proxy, create a new one
                 if (cachedProxy == null)
                 {
-                    if (proxyCollection == null) 
+                    if (endpointContext == null)
                     {
-                        proxyCollection = new List<ProxyPoolMember<T>>();
-                        _proxies.Add(key, proxyCollection);
+                        endpointContext = new EndpointContext<T>(endpointName, connectionLifeCycleStrategy);
+                        connectionLifeCycleStrategy.EndpointContext = endpointContext;
+                        _endpointContexts.Add(key, endpointContext);
                     }
 
-                    if (context.MaxNumberOfProxiesPerService < int.MaxValue && proxyCollection.Count >= context.MaxNumberOfProxiesPerService) 
+                    if (!endpointContext.CanAddAnotherProxy)
                     {
-                        string msg = String.Format("Pool for {0} is already at maximum capacity ({1}).", key.ToString(), context.MaxNumberOfProxiesPerService.ToString(CultureInfo.InvariantCulture));
+                        string msg = String.Format("Pool for {0} is already at maximum capacity ({1}).", key.ToString(), endpointContext.MaxNumberOfProxiesPerEndpoint.ToString(CultureInfo.InvariantCulture));
                         System.Diagnostics.Debug.WriteLine(msg);
                         throw new ProxyException(msg);
                     }
 
-                    cachedProxy = new ProxyPoolMember<T>(context);
-                    proxyCollection.Add(cachedProxy);
+                    cachedProxy = new ProxyPoolMember<T>(endpointContext);
+                    endpointContext.Proxies.Add(cachedProxy);
 
                     System.Diagnostics.Debug.WriteLine(
-                        String.Format("Created proxy {0} for {1}. Pool now contains {2} proxies.", cachedProxy.GetHashCode(), key.ToString(), proxyCollection.Count.ToString(CultureInfo.InvariantCulture)));
+                        String.Format("Created proxy {0} for {1}. Pool now contains {2} proxies.", cachedProxy.GetHashCode(), key.ToString(), endpointContext.Proxies.Count.ToString(CultureInfo.InvariantCulture)));
 
                 }
 
@@ -106,13 +91,11 @@ namespace Ayls.DynamicWcfProxy
             }
         }
 
-        public void ReturnProxy<T>(ProxyPoolMember<T> cachedProxy, ProxyContext<T> context) where T : class
+        public void ReturnProxy<T>(ProxyPoolMember<T> cachedProxy) where T : class
         {
-            Type t = typeof(T);
-            lock (t)
+            var key = GetEndpointKey<T>(cachedProxy.EndpointContext.EndpointName);
+            lock (key)
             {
-                var key = GetHashTableKey(t, context.EndpointName);
-
                 // mark as not used
                 cachedProxy.InUse = false;
 

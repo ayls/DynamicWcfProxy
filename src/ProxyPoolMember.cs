@@ -2,9 +2,9 @@
 
 namespace Ayls.DynamicWcfProxy
 {
-    class ProxyPoolMember<T> where T:class
+    class ProxyPoolMember<T> : IProxyPoolMember<T> where T: class
     {
-        private readonly ProxyConnectionLifeCycleStrategyBase<T> _connectionStrategy; 
+        public readonly EndpointContext<T> EndpointContext; 
 
         public bool InUse { get; set; }
 
@@ -12,13 +12,13 @@ namespace Ayls.DynamicWcfProxy
         {
             get
             {
-                return _connectionStrategy.Open();
+                return EndpointContext.ConnectionLifeCycleStrategy.Open();
             }
         }
 
-        public ProxyPoolMember(ProxyContext<T> context)
+        public ProxyPoolMember(EndpointContext<T> endpointContext)
         {
-            _connectionStrategy = context.ConnectionLifeCycleStrategy;
+            EndpointContext = endpointContext;
         }
 
         #region IDisposable implementation
@@ -31,7 +31,7 @@ namespace Ayls.DynamicWcfProxy
             {
                 if (disposing)
                 {
-                    _connectionStrategy.Close();
+                    EndpointContext.ConnectionLifeCycleStrategy.Close();
                 }
             }
             _disposed = true;

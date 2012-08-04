@@ -3,19 +3,24 @@ using System.Threading;
 
 namespace Ayls.DynamicWcfProxy
 {
-    public class DefaultProxyConnectionLifeCycleStrategy<T> : ProxyConnectionLifeCycleStrategyBase<T>
+    public class DefaultConnectionLifeCycleStrategy<T> : ConnectionLifeCycleStrategyBase<T>
         where T : class 
     {
         private readonly object _connectionLock = new object();
         private DateTime _lastUsed;
         private Timer _timer;
-        private readonly int _maxConnectionIdleTime;
-
-        public DefaultProxyConnectionLifeCycleStrategy()
+        private int? _maxConnectionIdleTime;
+        private int MaxConnectionIdleTime
         {
-            // take send timeout (operation timeout) and add 5 seconds on top of it to get the idle time after which connection should be closed
-            // this is to avoid closing the connection before it timeouts which could lead to confusing error messages
-            _maxConnectionIdleTime = Convert.ToInt32(ProxyContext<T>.ServiceFactory.Endpoint.Binding.SendTimeout.TotalMilliseconds) + 5000;            
+            get
+            {
+                if (_maxConnectionIdleTime == null)
+                    // take send timeout (operation timeout) and add 5 seconds on top of it to get the idle time after which connection should be closed
+                    // this is to avoid closing the connection before it timeouts which could lead to confusing error messages
+                    _maxConnectionIdleTime = Convert.ToInt32(EndpointContext.ServiceFactory.Endpoint.Binding.SendTimeout.TotalMilliseconds) + 5000;
+
+                return _maxConnectionIdleTime.Value;
+            }
         }
 
         public override T Open()
@@ -43,9 +48,9 @@ namespace Ayls.DynamicWcfProxy
         private void StartConnectionCheck()
         {
             if (_timer == null)
-                _timer = new Timer(ConnectionCheck, null, _maxConnectionIdleTime, _maxConnectionIdleTime);
+                _timer = new Timer(ConnectionCheck, null, MaxConnectionIdleTime, MaxConnectionIdleTime);
             else
-                _timer.Change(_maxConnectionIdleTime, _maxConnectionIdleTime);
+                _timer.Change(MaxConnectionIdleTime, MaxConnectionIdleTime);
         }
 
         private void ConnectionCheck(object state)
@@ -53,7 +58,7 @@ namespace Ayls.DynamicWcfProxy
             lock (_connectionLock)
             {
                 DateTime checkAt = DateTime.Now;
-                if ((checkAt - _lastUsed).TotalMilliseconds >= _maxConnectionIdleTime)
+                if ((checkAt - _lastUsed).TotalMilliseconds >= MaxConnectionIdleTime)
                 {
                     base.Close();
                     StopConnectionCheck();
