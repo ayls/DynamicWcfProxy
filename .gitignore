@@ -34,3 +34,6 @@ obj/
 # Cache Folders
 _ReSharper.*
 
+# Apple Stuff
+.AppleDouble/
+
