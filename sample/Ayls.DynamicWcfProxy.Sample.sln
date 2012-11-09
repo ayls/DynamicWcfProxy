@@ -1,6 +1,6 @@
 ﻿
-Microsoft Visual Studio Solution File, Format Version 11.00
-# Visual Studio 2010
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 2012
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Ayls.DynamicWcfProxy.Sample.Service", "Ayls.DynamicWcfProxy.Sample.Service\Ayls.DynamicWcfProxy.Sample.Service.csproj", "{83D67EAF-E9F4-4ACF-8C76-62FA23CFA386}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Ayls.DynamicWcfProxy.Sample.Client", "Ayls.DynamicWcfProxy.Sample.Client\Ayls.DynamicWcfProxy.Sample.Client.csproj", "{D706D0F5-C2F9-4F4A-BC1F-F94BB901A9E3}"
